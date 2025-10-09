@@ -147,6 +147,10 @@ sudo time docker exec spark-client \
     /opt/spark/data/procesamiento_etl.py
 
 
+Nuevo script para logs en history server
+sudo docker exec spark-client   /opt/spark/bin/spark-submit     --master spark://spark-master:7077     --conf spark.eventLog.enabled=true     --conf spark.eventLog.dir=file:///tmp/spark-events     /opt/spark/data/procesamiento_etl.py
+
+
 Opción B: Ver los logs en tiempo real (muy recomendado para depurar)
 
 Si quieres ver la salida del script mientras se ejecuta, puedes "seguir" los logs.

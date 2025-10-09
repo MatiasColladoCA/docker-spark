@@ -85,12 +85,14 @@ services:
     volumes:
       - ./data:/opt/spark/data
       - ./spark-events:/tmp/spark-events
+    ports:
+      - "4040:4040"
     command: ["sh", "-c", "sleep infinity"]
     networks:
       - spark-net
 
   spark-history-server:
-    image: apache/spark-py
+    build: .
     container_name: spark-history-server
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.history.HistoryServer
     ports:
@@ -99,6 +101,7 @@ services:
       - ./spark-events:/tmp/spark-events
     environment:
       - SPARK_HISTORY_OPTS=-Dspark.history.fs.logDirectory=file:///tmp/spark-events -Dspark.history.ui.port=18080
+      
     networks:
       - spark-net
 
