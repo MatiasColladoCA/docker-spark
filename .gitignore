@@ -1,2 +1,5 @@
 *~
 .vscode
+./spark-events
+./data
+.env

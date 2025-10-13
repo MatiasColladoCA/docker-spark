@@ -1,25 +1,27 @@
-version: '4.0.1'
+networks:
+  spark-net:
+    driver: bridge
 
 # Definimos una plantilla reutilizable para los workers de Spark.
 # Cualquier servicio que use <<: *spark-worker-config heredará esta configuración.
 x-spark-worker-template: &spark-worker-config
-  build: .
+  build: ./docker
   depends_on:
     - spark-master
   volumes:
     - ./data:/opt/spark/data
     - ./spark-events:/tmp/spark-events
   environment:
-    - SPARK_WORKER_MEMORY=2g
-    - SPARK_WORKER_CORES=2
+    # Usamos variables de entorno con valores por defecto
     - SPARK_LOCAL_DIRS=/tmp
     - SPARK_WORKER_DIR=/tmp
+  command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
   networks:
     - spark-net
 
 services:
   spark-master:
-    build: .
+    build: ./docker
     container_name: spark-master
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
     ports:
@@ -33,66 +35,52 @@ services:
     networks:
       - spark-net
 
-  # --- WORKERS ---
-  # Ahora definimos cada worker heredando la configuración de la plantilla.
-  # Solo cambiamos el nombre del contenedor y el comando.
-  
-  spark-worker-1:
+    # Worker "ligero" para tareas generales
+  spark-worker-light:
     <<: *spark-worker-config
-    container_name: spark-worker-1
-    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    environment:
+      - SPARK_WORKER_MEMORY=${LIGHT_MEMORY}
+      - SPARK_WORKER_CORES=${LIGHT_CORES}
+    deploy:
+      replicas: ${LIGHT_REPLICAS}
 
-  spark-worker-2:
+  # Worker "pesado" para tareas intensivas
+  spark-worker-heavy:
     <<: *spark-worker-config
-    container_name: spark-worker-2
-    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    environment:
+      - SPARK_WORKER_MEMORY=${HEAVY_MEMORY}
+      - SPARK_WORKER_CORES=${HEAVY_CORES}
+    deploy:
+      replicas: ${HEAVY_REPLICAS}
 
-  # spark-worker-3:
-  #   <<: *spark-worker-config
-  #   container_name: spark-worker-3
-  #   command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
 
-  # spark-worker-4:
-  #   <<: *spark-worker-config
-  #   container_name: spark-worker-4
-  #   command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
-
-  # spark-worker-5:
-  #   <<: *spark-worker-config
-  #   container_name: spark-worker-5
-  #   command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
-
-  # spark-worker-6:
-  #   <<: *spark-worker-config
-  #   container_name: spark-worker-6
-  #   command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
-
-  # spark-worker-7:
-  #   <<: *spark-worker-config
-  #   container_name: spark-worker-7
-  #   command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
-
-  # spark-worker-8:
-  #   <<: *spark-worker-config
-  #   container_name: spark-worker-8
-  #   command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
-
-  spark-client:
-    build: .
-    container_name: spark-client
+  jupyter-lab:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.jupyter
+    container_name: jupyter-lab
     depends_on:
       - spark-master
+    ports:
+      - "8888:8888"
     volumes:
       - ./data:/opt/spark/data
-      - ./spark-events:/tmp/spark-events
-    ports:
-      - "4040:4040"
-    command: ["sh", "-c", "sleep infinity"]
+      - ./src:/home/jupyter/notebooks # Mapea una carpeta para tus notebooks
+    environment:
+      - HOME=/home/jupyter
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_RUNTIME_DIR=/tmp/jupyter_runtime
+      - JUPYTER_DATA_DIR=/tmp/jupyter_data
+      - JUPYTER_CONFIG_DIR=/tmp/jupyter_config
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    
+    command: [    "jupyter", "notebook",    "--ip=0.0.0.0",    "--no-browser",    "--NotebookApp.token=''",     "--NotebookApp.password=''",     "--notebook-dir=/home/jupyter/notebooks"]
     networks:
       - spark-net
-
+  
+  
   spark-history-server:
-    build: .
+    build: ./docker
     container_name: spark-history-server
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.history.HistoryServer
     ports:
@@ -104,7 +92,3 @@ services:
       
     networks:
       - spark-net
-
-networks:
-  spark-net:
-    driver: bridge

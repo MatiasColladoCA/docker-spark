@@ -1,0 +1,34 @@
+# Imagen base
+FROM python:3.11-slim
+
+# Instalar Java y dependencias del sistema
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends default-jdk curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Definir variables de entorno para Spark
+ENV JAVA_HOME=/usr/lib/jvm/default-java
+ENV PATH=$JAVA_HOME/bin:$PATH
+
+# Crear usuario jupyter y carpeta base
+RUN useradd -ms /bin/bash jupyter
+
+WORKDIR /home/jupyter
+
+# Instalar dependencias
+RUN pip install --no-cache-dir pyspark==3.5.7 notebook jupyterlab
+
+# Crear directorios necesarios y ajustar permisos
+RUN mkdir -p /home/jupyter/.local/share/jupyter/runtime && \
+    chown -R jupyter:jupyter /home/jupyter
+
+# Copiar requirements si existe
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt || echo "Sin requirements.txt"
+
+# Cambiar usuario (mejor práctica)
+USER jupyter
+
+# Exponer puerto y lanzar Jupyter
+EXPOSE 8888
+CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--no-browser", "--allow-root", "--notebook-dir=/home/jupyter/notebooks"]

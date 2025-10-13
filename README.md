@@ -1,50 +1,15 @@
-[![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/big-data-europe/Lobby)
-[![Build Status](https://travis-ci.org/big-data-europe/docker-spark.svg?branch=master)](https://travis-ci.org/big-data-europe/docker-spark)
-[![Twitter](https://img.shields.io/twitter/follow/BigData_Europe.svg?style=social)](https://twitter.com/BigData_Europe)
-# Spark docker
+## Configurar .env para workers:
 
-Docker images to:
-* Setup a standalone [Apache Spark](https://spark.apache.org/) cluster running one Spark Master and multiple Spark workers
-* Build Spark applications in Java, Scala or Python to run on a Spark cluster
+# Workers Ligeros
+LIGHT_REPLICAS=2
+LIGHT_MEMORY=2g
+LIGHT_CORES=2
 
-<details open>
-<summary>Currently supported versions:</summary>
+# Workers Pesados
+HEAVY_REPLICAS=0
+HEAVY_MEMORY=4g
+HEAVY_CORES=4
 
-* Spark 3.3.0 for Hadoop 3.3 with OpenJDK 8 and Scala 2.12
-* Spark 3.2.1 for Hadoop 3.2 with OpenJDK 8 and Scala 2.12
-* Spark 3.2.0 for Hadoop 3.2 with OpenJDK 8 and Scala 2.12
-* Spark 3.1.2 for Hadoop 3.2 with OpenJDK 8 and Scala 2.12
-* Spark 3.1.1 for Hadoop 3.2 with OpenJDK 8 and Scala 2.12
-* Spark 3.1.1 for Hadoop 3.2 with OpenJDK 11 and Scala 2.12
-* Spark 3.0.2 for Hadoop 3.2 with OpenJDK 8 and Scala 2.12
-* Spark 3.0.1 for Hadoop 3.2 with OpenJDK 8 and Scala 2.12
-* Spark 3.0.0 for Hadoop 3.2 with OpenJDK 11 and Scala 2.12
-* Spark 3.0.0 for Hadoop 3.2 with OpenJDK 8 and Scala 2.12
-* Spark 2.4.5 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.4.4 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.4.3 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.4.1 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.4.0 for Hadoop 2.8 with OpenJDK 8 and Scala 2.12
-* Spark 2.4.0 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.3.2 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.3.1 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.3.1 for Hadoop 2.8 with OpenJDK 8
-* Spark 2.3.0 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.2.2 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.2.1 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.2.0 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.1.3 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.1.2 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.1.1 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.1.0 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.0.2 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.0.1 for Hadoop 2.7+ with OpenJDK 8
-* Spark 2.0.0 for Hadoop 2.7+ with Hive support and OpenJDK 8
-* Spark 2.0.0 for Hadoop 2.7+ with Hive support and OpenJDK 7
-* Spark 1.6.2 for Hadoop 2.6 and later
-* Spark 1.5.1 for Hadoop 2.6 and later
-
-</details>
 
 ## Using Docker Compose
 
@@ -133,9 +98,9 @@ One way to achieve this is by creating a headless service for your pod and then 
 
 # USAR
 
-sudo docker exec -it spark-client \
-  /opt/spark/bin/spark-submit \
-    --master spark://spark-master:7077 \
+sudo docker exec -it spark-client 
+  /opt/spark/bin/spark-submit 
+    --master spark://spark-master:7077 
     /opt/spark/data/procesamiento_etl.py
 
 
@@ -151,7 +116,21 @@ Nuevo script para logs en history server
 sudo docker exec spark-client   /opt/spark/bin/spark-submit     --master spark://spark-master:7077     --conf spark.eventLog.enabled=true     --conf spark.eventLog.dir=file:///tmp/spark-events     /opt/spark/data/procesamiento_etl.py
 
 
+
+
+# En la Terminal B
+sudo docker logs -f spark-client > resultado_completo.log 2>&1
 Opción B: Ver los logs en tiempo real (muy recomendado para depurar)
+
+
+
+
+
+
+
+
+
+
 
 Si quieres ver la salida del script mientras se ejecuta, puedes "seguir" los logs.
 
