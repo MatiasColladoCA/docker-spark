@@ -16,6 +16,7 @@ x-spark-worker-template: &spark-worker-config
     - SPARK_LOCAL_DIRS=/tmp
     - SPARK_WORKER_DIR=/tmp
   command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+  user: root
   networks:
     - spark-net
 

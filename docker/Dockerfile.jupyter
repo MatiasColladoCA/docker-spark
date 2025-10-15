@@ -16,7 +16,7 @@ RUN useradd -ms /bin/bash jupyter
 WORKDIR /home/jupyter
 
 # Instalar dependencias
-RUN pip install --no-cache-dir pyspark==3.5.7 notebook jupyterlab
+RUN pip install --no-cache-dir pyspark==4.0.1 notebook jupyterlab
 
 # Crear directorios necesarios y ajustar permisos
 RUN mkdir -p /home/jupyter/.local/share/jupyter/runtime && \

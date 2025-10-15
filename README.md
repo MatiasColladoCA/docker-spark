@@ -10,6 +10,8 @@ HEAVY_REPLICAS=0
 HEAVY_MEMORY=4g
 HEAVY_CORES=4
 
+## Cargar datos al proyecto
+Los contenedores buscan los datos en data/e-commerce_orders.csv
 
 ## Using Docker Compose
 

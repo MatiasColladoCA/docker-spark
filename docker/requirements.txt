@@ -1,5 +1,5 @@
 jupyterlab
 notebook
-pyspark==3.5.0
+pyspark==4.0.1
 pandas==2.0.3
 numpy==1.24.3
