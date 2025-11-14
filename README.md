@@ -1,290 +1,144 @@
-## Configurar .env para workers:
-
-# Workers Ligeros
-LIGHT_REPLICAS=2
-LIGHT_MEMORY=2g
-LIGHT_CORES=2
-
-# Workers Pesados
-HEAVY_REPLICAS=0
-HEAVY_MEMORY=4g
-HEAVY_CORES=4
-
-## Cargar datos al proyecto
-Los contenedores buscan los datos en data/e-commerce_orders.csv
-
-## Using Docker Compose
 
-Add the following services to your `docker-compose.yml` to integrate a Spark master and Spark worker in [your BDE pipeline](https://github.com/big-data-europe/app-bde-pipeline):
-```yml
-version: '3'
-services:
-  spark-master:
-    image: bde2020/spark-master:3.3.0-hadoop3.3
-    container_name: spark-master
-    ports:
-      - "8080:8080"
-      - "7077:7077"
-    environment:
-      - INIT_DAEMON_STEP=setup_spark
-  spark-worker-1:
-    image: bde2020/spark-worker:3.3.0-hadoop3.3
-    container_name: spark-worker-1
-    depends_on:
-      - spark-master
-    ports:
-      - "8081:8081"
-    environment:
-      - "SPARK_MASTER=spark://spark-master:7077"
-  spark-worker-2:
-    image: bde2020/spark-worker:3.3.0-hadoop3.3
-    container_name: spark-worker-2
-    depends_on:
-      - spark-master
-    ports:
-      - "8082:8081"
-    environment:
-      - "SPARK_MASTER=spark://spark-master:7077"
-  spark-history-server:
-      image: bde2020/spark-history-server:3.3.0-hadoop3.3
-      container_name: spark-history-server
-      depends_on:
-        - spark-master
-      ports:
-        - "18081:18081"
-      volumes:
-        - /tmp/spark-events-local:/tmp/spark-events
-```
-Make sure to fill in the `INIT_DAEMON_STEP` as configured in your pipeline.
+# Análisis de Datos de Ventas con Docker y Apache Spark
 
-## Running Docker containers without the init daemon
-### Spark Master
-To start a Spark master:
+Este proyecto demuestra la implementación de un pipeline de datos ETL (Extraer, Transformar, Cargar) utilizando un clúster de Apache Spark orquestado con Docker. El diseño se centra en la reproducibilidad, la escalabilidad y la separación de responsabilidades, siguiendo las mejores prácticas de la ingeniería de software moderna para crear un entorno de análisis de datos robusto y profesional.
 
-    docker run --name spark-master -h spark-master -d bde2020/spark-master:3.3.0-hadoop3.3
+## Arquitectura General
 
-### Spark Worker
-To start a Spark worker:
+La solución se compone de varios servicios orquestados mediante Docker Compose, cada uno con un rol específico dentro del ecosistema de procesamiento de datos:
 
-    docker run --name spark-worker-1 --link spark-master:spark-master -d bde2020/spark-worker:3.3.0-hadoop3.3
+-   **Spark Master:** Nodo maestro que gestiona los recursos del clúster y coordina la ejecución de tareas.
+-   **Spark Workers (Heterogéneos):** Nodos trabajadores que ejecutan las tareas. Se configuran como "ligeros" y "pesados" para optimizar el uso de recursos según la carga de trabajo.
+-   **History Server:** Almacena y muestra la interfaz de usuario (UI) de aplicaciones Spark ya finalizadas, crucial para el análisis post-ejecución y la depuración.
+-   **Jupyter Lab:** Entorno de desarrollo interactivo. Se utiliza para prototipar, explorar datos y depurar el código PySpark. **No actúa como driver en producción.**
+-   **Submit Node:** Contenedor ligero diseñado exclusivamente para lanzar aplicaciones Spark en el clúster mediante el comando `spark-submit`, separando el entorno de desarrollo del de ejecución.
 
-## Launch a Spark application
-Building and running your Spark application on top of the Spark cluster is as simple as extending a template Docker image. Check the template's README for further documentation.
-* [Maven template](template/maven)
-* [Python template](template/python)
-* [Sbt template](template/sbt)
+## Características Clave
 
-## Kubernetes deployment
-The BDE Spark images can also be used in a Kubernetes enviroment.
+-   **Entorno Reproducible y Portátil:** Gracias a la contenerización con Docker, el entorno puede ser replicado exactamente en cualquier máquina con Docker instalado.
+-   **Arquitectura Escalable y Modular:** El uso de plantillas YAML y un archivo `.env` permite ajustar fácilmente el número de workers y sus recursos (CPU, memoria) sin modificar el archivo de orquestación.
+-   **Separación de Responsabilidades:** Se distingue claramente entre el entorno de desarrollo (Jupyter Lab) y el de ejecución (Submit Node), una práctica estándar en la industria.
+-   **Observabilidad Completa:** Se exponen las UIs del Spark Master y del History Server para monitorear en tiempo real y analizar ejecuciones pasadas.
 
-To deploy a simple Spark standalone cluster issue
+## Requisitos Previos
 
-`kubectl apply -f https://raw.githubusercontent.com/big-data-europe/docker-spark/master/k8s-spark-cluster.yaml`
+-   [Docker](https://www.docker.com/get-started/)
+-   [Docker Compose](https://docs.docker.com/compose/install/)
 
-This will setup a Spark standalone cluster with one master and a worker on every available node using the default namespace and resources. The master is reachable in the same namespace at `spark://spark-master:7077`.
-It will also setup a headless service so spark clients can be reachable from the workers using hostname `spark-client`.
+## Configuración y Ejecución
 
-Then to use `spark-shell` issue
+Sigue estos pasos para poner en marcha el entorno de análisis de datos.
 
-`kubectl run spark-base --rm -it --labels="app=spark-client" --image bde2020/spark-base:3.3.0-hadoop3.3 -- bash ./spark/bin/spark-shell --master spark://spark-master:7077 --conf spark.driver.host=spark-client`
+1.  **Clonar el Repositorio**
+    ```bash
+    git clone https://github.com/tu-usuario/tu-repositorio.git
+    cd tu-repositorio
+    ```
 
-To use `spark-submit` issue for example
+2.  **Configurar Variables de Entorno**
+    Copia el archivo de plantilla `.env.example` a `.env` y ajústalo según los recursos de tu máquina.
+    ```bash
+    cp .env.example .env
+    ```
+    Edita el archivo `.env` para definir el número de réplicas y los recursos para los workers:
+    ```env
+    LIGHT_REPLICAS=2
+    LIGHT_MEMORY=2g
+    LIGHT_CORES=1
 
-`kubectl run spark-base --rm -it --labels="app=spark-client" --image bde2020/spark-base:3.3.0-hadoop3.3 -- bash ./spark/bin/spark-submit --class CLASS_TO_RUN --master spark://spark-master:7077 --deploy-mode client --conf spark.driver.host=spark-client URL_TO_YOUR_APP`
+    HEAVY_REPLICAS=1
+    HEAVY_MEMORY=4g
+    HEAVY_CORES=2
+    ```
 
-You can use your own image packed with Spark and your application but when deployed it must be reachable from the workers.
-One way to achieve this is by creating a headless service for your pod and then use `--conf spark.driver.host=YOUR_HEADLESS_SERVICE` whenever you submit your application.
+3.  **Levantar el Entorno**
+    Ejecuta el siguiente comando para construir las imágenes y levantar todos los contenedores en modo detached (segundo plano):
+    ```bash
+    docker-compose up --build -d
+    ```
 
+4.  **Acceder a las Interfaces**
+    Una vez que los contenedores estén en ejecución, puedes acceder a las siguientes herramientas:
+    -   **Jupyter Lab:** `http://localhost:8888`
+    -   **Spark Master UI:** `http://localhost:8080`
+    -   **History Server UI:** `http://localhost:18080`
 
-
-
-# USAR
-
-sudo docker exec -it spark-client 
-  /opt/spark/bin/spark-submit 
-    --master spark://spark-master:7077 
-    /opt/spark/data/procesamiento_etl.py
-
-
-Ejecutar el mismo script midiendo tiempo de ejecución (puedo comentar un worker en el docker compose)
-
-sudo time docker exec spark-client \
-  /opt/spark/bin/spark-submit \
-    --master spark://spark-master:7077 \
-    /opt/spark/data/procesamiento_etl.py
-
-
-Nuevo script para logs en history server
-sudo docker exec spark-client   /opt/spark/bin/spark-submit     --master spark://spark-master:7077     --conf spark.eventLog.enabled=true     --conf spark.eventLog.dir=file:///tmp/spark-events     /opt/spark/data/procesamiento_etl.py
-
-
-
-
-# En la Terminal B
-sudo docker logs -f spark-client > resultado_completo.log 2>&1
-Opción B: Ver los logs en tiempo real (muy recomendado para depurar)
-
-
-
-
-
-
-
-
-
-
-
-Si quieres ver la salida del script mientras se ejecuta, puedes "seguir" los logs.
-
-En una terminal, lanza el script:
-
-`docker exec -it spark-client spark-submit --master spark://spark-master:7077 /opt/spark/data/procesamiento_etl.py`
-
-Inmediatamente después, abre una segunda terminal y ejecuta este comando:
-bash
-
-`docker logs -f spark-client`
-
-El flag -f (de follow) te mostrará los logs en tiempo real, a medida que se generan. Verás los print() y los show() apareciendo en tu pantalla. Puedes detenerlo con Ctrl+C.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Análisis de tu Flujo Actual (docker-compose up + docker exec)
-Este enfoque tiene varias fortalezas que lo hacen una práctica sólida:
-
-Separación de Responsabilidades (Separation of Concerns):
-docker-compose up -d: Su única responsabilidad es levantar y mantener la infraestructura (el clúster de Spark, la red, los volúmenes). Es un comando idempotente y declarativo.
-docker exec ... spark-submit: Su única responsabilidad es ejecutar la lógica de negocio (tu aplicación ETL) sobre esa infraestructura ya existente.
-Esta separación es un principio de diseño de software y de sistemas excelente. Te permite levantar el clúster una vez y ejecutar el trabajo múltiples veces con diferentes parámetros si es necesario, sin tener que reiniciar toda la infraestructura.
-Claridad y Control:
-Tienes control total y explícito sobre cuándo se ejecuta tu aplicación. No hay "magia" ni ejecuciones automáticas inesperadas.
-Es ideal para depuración. Puedes levantar el clúster, entrar en el contenedor spark-client con bash, inspeccionar archivos, y luego ejecutar el spark-submit manualmente cuando estés listo.
-Flexibilidad:
-Puedes modificar fácilmente los parámetros de spark-submit en cada ejecución (por ejemplo, cambiar la memoria del driver, añadir --conf, etc.) sin tener que modificar el docker-compose.yml. Esto es mucho más ágil para el desarrollo.
-Estándar de la Industria para Desarrollo:
-Este patrón de "levantar infraestructura + ejecutar tarea" es el estándar de facto para muchos entornos de desarrollo local. Es exactamente como un desarrollador interactuaría con un clúster remoto vía SSH, pero encapsulado en Docker.
-Conclusión del análisis: Para un entorno de desarrollo local, pruebas y depuración, tu método no solo es profesional, sino que es preferible a alternativas más automatizadas que ocultarían la ejecución.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-PROMPT PARA IA
-
-
-Claro, aquí tienes un prompt detallado y estructurado que puedes usar para que una IA (como GPT-4, Claude, etc.) comprenda a fondo tu proyecto, su arquitectura y el camino que seguiste para llegar a la solución.
-
----
-
-### Prompt para la IA
-
-**Rol:** Actúa como un Arquitecto de Datos y DevOps senior con amplia experiencia en Apache Spark y Docker.
-
-**Objetivo:** Necesito que comprendas en detalle un proyecto de procesamiento de datos que he construido. Analiza la estructura, la configuración, la lógica de la aplicación y, lo más importante, los problemas de configuración que se resolvieron para llegar a un clúster funcional. Tu comprensión debe ser lo suficientemente profunda como para poder responder preguntas, sugerir mejoras o generar documentación técnica sobre este proyecto.
-
----
-
-#### **1. Resumen del Proyecto**
-
-He creado un entorno de desarrollo local para un pipeline ETL (Extraer, Transformar, Cargar) utilizando Apache Spark. Todo el entorno está orquestado con Docker Compose y se ejecuta en un clúster de Spark con una arquitectura master-worker, todo contenido en mi máquina local.
-
-#### **2. Estructura del Proyecto**
-
-La estructura de archivos y directorios es la siguiente:
+## Estructura del Proyecto
 
 ```
-mi-proyecto-spark/
-├── docker-compose.yml
-├── Dockerfile
-├── procesamiento_etl.py
-├── data/
-│   ├── e-commerce_orders.csv  # Datos de entrada
-│   └── resultados/            # Directorio de salida (creado por la app)
-│       ├── pedidos_por_estado/
-│       ├── top_clientes/
-│       └── estadisticas_ventas/
-└── spark-events/              # Logs para el History Server
+.
+├── data/                     # Directorio para archivos de datos de entrada (CSV).
+├── docker/                   # Contiene los Dockerfiles para las imágenes.
+│   ├── Dockerfile            # Dockerfile para Spark, Workers, etc.
+│   └── Dockerfile.jupyter    # Dockerfile específico para Jupyter Lab.
+│   └── requirements.txt      # Requerimientos para instalar desde Dockerfile.
+├── spark-events/             # Directorio para los eventos de Spark (usado por el History Server).
+├── src/                      # Directorio para notebooks y scripts de PySpark.
+│   ├── procesamiento_etl.ipynb
+│   └── etl_job.py
+├── .env                      # Archivo de configuración de variables de entorno.
+├── .env.example              # Plantilla para el archivo .env.
+├── docker-compose.yml        # Archivo de orquestación de los contenedores.
+└── README.md                 # Este archivo.
 ```
 
-#### **3. Detalles de los Componentes Clave**
+## Guía de Uso
 
-**a) `docker-compose.yml`**
-Este archivo orquesta 5 servicios en una red Docker aislada (`spark-net`):
+### 1. Desarrollo Interactivo (Jupyter Lab)
 
-*   **`spark-master`**: Contenedor que ejecuta el proceso master de Spark. **Importante**: Inicialmente usaba una imagen diferente (`apache/spark-py`), pero se corrigió para usar la misma imagen que los workers (construida localmente) para garantizar la compatibilidad de versiones.
-*   **`spark-worker-1` y `spark-worker-2`**: Dos contenedores que actúan como workers. Se les asignan 2 cores y 2GB de RAM cada uno. **Corrección crítica aplicada**: Se añadió la variable de entorno `SPARK_WORKER_DIR=/tmp` para resolver un error `AccessDeniedException`, ya que el usuario del contenedor no podía escribir en el directorio por defecto de Spark.
-*   **`spark-client`**: Un contenedor "utilitario" desde donde se envían las aplicaciones al clúster usando `spark-submit`. No ejecuta un worker, solo actúa como driver de la aplicación.
-*   **`spark-history-server`**: Un servicio que lee los logs de eventos de Spark (`spark-events`) y proporciona una UI web en `http://localhost:18080` para inspeccionar aplicaciones que ya han finalizado.
-*   **Volúmenes**:
-    *   `./data:/opt/spark/data`: Mapea los datos de entrada y salida entre mi máquina local y los contenedores.
-    *   `./spark-events:/tmp/spark-events`: Mapea el directorio de logs de eventos para el History Server.
+Accede a `http://localhost:8888` para abrir Jupyter Lab. Desde aquí, puedes:
+- Crear y ejecutar notebooks (`.ipynb`) para explorar los datos en `./data`.
+- Prototipar y depurar tu lógica de ETL de forma interactiva.
+- El notebook se conectará al clúster Spark (`spark://spark-master:7077`) para distribuir las tareas.
 
-**b) `Dockerfile`**
-Define una imagen Docker personalizada basada en `apache/spark:v3.5.0`. Utiliza `ONBUILD` para instalar automáticamente las dependencias de Python (`requirements.txt`) y copiar el código de la aplicación al contenedor. Esto asegura que el master, los workers y el cliente tengan un entorno idéntico.
+### 2. Ejecución en Producción (`spark-submit`)
 
-**c) `procesamiento_etl.py`**
-Esta es la aplicación PySpark que realiza el ETL:
-1.  **Extract**: Lee un archivo CSV (`e-commerce_orders.csv`) desde el volumen compartido.
-2.  **Transform**:
-    *   Limpia los datos eliminando registros nulos.
-    *   Corrige los tipos de datos (e.g., `Price` a `FloatType`).
-    *   Realiza agregaciones: calcula estadísticas de ventas, cuenta pedidos por estado y encuentra el top 3 de clientes.
-3.  **Load**:
-    *   Imprime resultados intermedios en la consola (usando `print()` y `df.show()`). Esta salida va a los logs del contenedor `spark-client`.
-    *   Escribe los resultados finales en formato CSV en el directorio `/opt/spark/data/resultados/`, que se refleja en mi máquina local.
-    *   **Corrección aplicada**: Se eliminó la llamada explícita a `spark.stop()` para evitar que el SparkContext se cerrara antes de que las operaciones de escritura (que son "lazy") se completaran.
+Una forma alternativa de convertir el `ipynb` a un `py` si no es usando la interfaz gráfica de Jupyter, es desde la terminal, posicionado en el directorio del notebook:
 
-#### **4. El Viaje de Depuración (Problemas y Soluciones)**
+```bash
+jupyter nbconvert --to python procesamiento_etl.ipynb
+```
 
-Este es el contexto más importante para entender por qué la configuración final es como es:
+Cuando tu lógica esté lista, guárdala como un script de Python (ej. `src/procesamiento_etl.py`). Luego, lánzala al clúster de forma robusta usando el `submit-node`.
 
-1.  **Problema 1: Workers no se registraban.**
-    *   **Síntoma**: La UI del Master en `localhost:8080` no mostraba workers. Las aplicaciones se quedaban en estado `WAITING`.
-    *   **Causa Raíz**: Incompatibilidad de imágenes. El master usaba `apache/spark-py` y los workers usaban una imagen construida desde `apache/spark:v3.5.0`.
-    *   **Solución**: Unificar todos los servicios de Spark (master, workers, client) para que usaran la misma imagen construida localmente (`build: .`).
+Desde tu terminal local, ejecuta el siguiente comando:
 
-2.  **Problema 2: Los workers fallaban al iniciar.**
-    *   **Síntoma**: Los logs de los workers mostraban `java.nio.file.AccessDeniedException: /opt/spark/work`.
-    *   **Causa Raíz**: El proceso de Spark dentro del contenedor se ejecutaba como un usuario no-root y no tenía permisos para crear su directorio de trabajo en `/opt/spark`.
-    *   **Solución**: Añadir la variable de entorno `SPARK_WORKER_DIR=/tmp` a los workers para que usen un directorio con permisos de escritura.
+```bash
+docker-compose exec submit-node spark-submit \
+  --master spark://spark-master:7077 \
+  --name "Produccion-ETL-Ventas" \
+  /home/jupyter/notebooks/procesamiento_etl.py
+```
 
-3.  **Problema 3: La aplicación fallaba durante la escritura.**
-    *   **Síntoma**: Los logs mostraban `Stage cancelled because SparkContext was shut down`.
-    *   **Causa Raíz**: La llamada a `spark.stop()` al final del script cerraba el contexto inmediatamente, cancelando las tareas de escritura que Spark había planificado pero aún no ejecutado (evaluación perezosa).
-    *   **Solución**: Eliminar la línea `spark.stop()` y dejar que Spark gestione el ciclo de vida del contexto hasta que todas las tareas se completen.
+Este comando ejecutará el script dentro del contenedor `submit-node`, que a su vez enviará la aplicación al clúster Spark para su ejecución distribuida.
 
----
+## Solución de Problemas (Troubleshooting)
 
-**Tarea:**
-Basado en esta información completa, prepárate para:
-*   Explicar el flujo de datos de extremo a extremo.
-*   Justificar cada decisión de configuración en el `docker-compose.yml`.
-*   Proponer posibles mejoras (ej: añadir más workers, cambiar el gestor de recursos, etc.).
-*   Generar un archivo `README.md` para este proyecto.
+### La UI de la Aplicación Spark no es accesible desde el Spark Master
+
+Si al hacer clic en una aplicación en ejecución en `http://localhost:8080` la UI del driver no carga, es un problema de configuración de red.
+
+**Solución:**
+Asegúrate de que en el código de tu script Python (o notebook) la `SparkSession` esté configurada para ser accesible externamente:
+
+```python
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder \
+    .appName("MiApp") \
+    .master("spark://spark-master:7077") \
+    .config("spark.driver.bindAddress", "0.0.0.0") \
+    .getOrCreate()
+```
+
+Además, verifica que tu `docker-compose.yml` tenga la configuración correcta en el servicio `jupyter-lab`:
+```yaml
+environment:
+  - SPARK_DRIVER_HOST=host.docker.internal
+```
+
+
+## Autores
+
+-   **[Antonella Capadona](https://github.com/Resnick7)**
+-   **[Matías Collado](https://github.com/MatiasColladoCA)**

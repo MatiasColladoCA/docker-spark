@@ -64,6 +64,7 @@ services:
       - spark-master
     ports:
       - "8888:8888"
+      - "4041:4041"
     volumes:
       - ./data:/opt/spark/data
       - ./src:/home/jupyter/notebooks # Mapea una carpeta para tus notebooks
@@ -74,6 +75,7 @@ services:
       - JUPYTER_DATA_DIR=/tmp/jupyter_data
       - JUPYTER_CONFIG_DIR=/tmp/jupyter_config
       - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_DRIVER_HOST=host.docker.internal
     
     command: [    "jupyter", "notebook",    "--ip=0.0.0.0",    "--no-browser",    "--NotebookApp.token=''",     "--NotebookApp.password=''",     "--notebook-dir=/home/jupyter/notebooks"]
     networks:
